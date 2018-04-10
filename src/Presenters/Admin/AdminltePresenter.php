@@ -1,35 +1,9 @@
-<?php
+<?php namespace Cheycron\Menus\Presenters\Admin;
 
-namespace Nwidart\Menus\Presenters\Admin;
-
-use Nwidart\Menus\Presenters\Presenter;
+use Cheycron\Menus\Presenters\Presenter;
 
 class AdminltePresenter extends Presenter
 {
-    /**
-     * {@inheritdoc }.
-     */
-    public function getOpenTagWrapper()
-    {
-        return PHP_EOL . '<ul class="sidebar-menu tree" data-widget="tree">' . PHP_EOL;
-    }
-
-    /**
-     * {@inheritdoc }.
-     */
-    public function getCloseTagWrapper()
-    {
-        return PHP_EOL . '</ul>' . PHP_EOL;
-    }
-
-    /**
-     * {@inheritdoc }.
-     */
-    public function getMenuWithoutDropdownWrapper($item)
-    {
-        return '<li' . $this->getActiveState($item) . '><a href="' . $item->getUrl() . '" ' . $item->getAttributes() . '>' . $item->getIcon() . ' <span>' . $item->title . '</span></a></li>' . PHP_EOL;
-    }
-
     /**
      * {@inheritdoc }.
      */
@@ -37,7 +11,7 @@ class AdminltePresenter extends Presenter
     {
         return $item->isActive() ? $state : null;
     }
-
+    
     /**
      * Get active state on child items.
      *
@@ -50,7 +24,15 @@ class AdminltePresenter extends Presenter
     {
         return $item->hasActiveOnChild() ? $state : null;
     }
-
+    
+    /**
+     * {@inheritdoc }.
+     */
+    public function getCloseTagWrapper()
+    {
+        return PHP_EOL.'</ul>'.PHP_EOL;
+    }
+    
     /**
      * {@inheritdoc }.
      */
@@ -58,54 +40,70 @@ class AdminltePresenter extends Presenter
     {
         return '<li class="divider"></li>';
     }
-
+    
     /**
      * {@inheritdoc }.
      */
     public function getHeaderWrapper($item)
     {
-        return '<li class="header">' . $item->title . '</li>';
+        return '<li class="header">'.$item->title.'</li>';
     }
-
+    
     /**
      * {@inheritdoc }.
      */
     public function getMenuWithDropDownWrapper($item)
     {
-        return '<li class="treeview' . $this->getActiveStateOnChild($item, ' active') . '">
+        return '<li class="treeview'.$this->getActiveStateOnChild($item, ' active').'">
 		          <a href="#">
-					' . $item->getIcon() . ' <span>' . $item->title . '</span>
+					'.$item->getIcon().' <span>'.$item->title.'</span>
                     <span class="pull-right-container">
                       <i class="fa fa-angle-left pull-right"></i>
                     </span>
 			      </a>
 			      <ul class="treeview-menu">
-			      	' . $this->getChildMenuItems($item) . '
+			      	'.$this->getChildMenuItems($item).'
 			      </ul>
 		      	</li>'
-        . PHP_EOL;
+            .PHP_EOL;
     }
-
+    
+    /**
+     * {@inheritdoc }.
+     */
+    public function getMenuWithoutDropdownWrapper($item)
+    {
+        return '<li'.$this->getActiveState($item).'><a href="'.$item->getUrl().'" '.$item->getAttributes().'>'.$item->getIcon().' <span>'.$item->title.'</span></a></li>'.PHP_EOL;
+    }
+    
     /**
      * Get multilevel menu wrapper.
      *
-     * @param \Nwidart\Menus\MenuItem $item
+     * @param \Cheycron\Menus\MenuItem $item
      *
      * @return string`
      */
     public function getMultiLevelDropdownWrapper($item)
     {
-        return '<li class="treeview' . $this->getActiveStateOnChild($item, ' active') . '">
+        return '<li class="treeview'.$this->getActiveStateOnChild($item, ' active').'">
 		          <a href="#">
-					' . $item->getIcon() . ' <span>' . $item->title . '</span>
+					'.$item->getIcon().' <span>'.$item->title.'</span>
 			      	<span class="pull-right-container">
                       <i class="fa fa-angle-left pull-right"></i>
                     </span>
 			      </a>
 			      <ul class="treeview-menu">
-			      	' . $this->getChildMenuItems($item) . '
+			      	'.$this->getChildMenuItems($item).'
 			      </ul>
 		      	</li>'
-        . PHP_EOL;
+            .PHP_EOL;
+    }
+    
+    /**
+     * {@inheritdoc }.
+     */
+    public function getOpenTagWrapper()
+    {
+        return PHP_EOL.'<ul class="sidebar-menu tree" data-widget="tree">'.PHP_EOL;
     }
 }

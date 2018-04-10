@@ -1,6 +1,4 @@
-<?php
-
-namespace Nwidart\Menus\Facades;
+<?php namespace Cheycron\Menus\Facades;
 
 use Illuminate\Support\Facades\Facade;
 

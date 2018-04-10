@@ -1,6 +1,4 @@
-<?php
-
-namespace Nwidart\Menus;
+<?php namespace Cheycron\Menus;
 
 use Closure;
 use Collective\Html\HtmlFacade as HTML;
@@ -21,25 +19,18 @@ use Illuminate\Support\Facades\Request;
 class MenuItem implements ArrayableContract
 {
     /**
-     * Array properties.
-     *
-     * @var array
-     */
-    protected $properties = [];
-
-    /**
      * The child collections for current menu item.
      *
      * @var array
      */
-    protected $childs = array();
-
+    protected $childs = [];
+    
     /**
      * The fillable attribute.
      *
      * @var array
      */
-    protected $fillable = array(
+    protected $fillable = [
         'url',
         'route',
         'title',
@@ -50,47 +41,53 @@ class MenuItem implements ArrayableContract
         'active',
         'order',
         'hideWhen',
-    );
-
+    ];
+    
     /**
      * The hideWhen callback.
      *
      * @var Closure
      */
     protected $hideWhen;
-
+    
+    /**
+     * Array properties.
+     *
+     * @var array
+     */
+    protected $properties = [];
+    
     /**
      * Constructor.
      *
      * @param array $properties
      */
-    public function __construct($properties = array())
+    public function __construct($properties = [])
     {
         $this->properties = $properties;
         $this->fill($properties);
     }
-
+    
     /**
-     * Set the icon property when the icon is defined in the link attributes.
+     * Get active status using route.
      *
-     * @param array $properties
-     *
-     * @return array
+     * @return bool
      */
-    protected static function setIconAttribute(array $properties)
+    protected function getActiveStateFromRoute()
     {
-        $icon = array_get($properties, 'attributes.icon');
-        if (!is_null($icon)) {
-            $properties['icon'] = $icon;
-
-            array_forget($properties, 'attributes.icon');
-
-            return $properties;
-        }
-
-        return $properties;
+        return Request::is(str_replace(url('/').'/', '', $this->getUrl()));
     }
-
+    
+    /**
+     * Get active status using request url.
+     *
+     * @return bool
+     */
+    protected function getActiveStateFromUrl()
+    {
+        return Request::is($this->url);
+    }
+    
     /**
      * Get random name.
      *
@@ -102,21 +99,157 @@ class MenuItem implements ArrayableContract
     {
         return substr(md5(array_get($attributes, 'title', str_random(6))), 0, 5);
     }
-
+    
     /**
-     * Create new static instance.
+     * Determine the current item using route.
+     *
+     * @return bool
+     */
+    protected function hasRoute()
+    {
+        return ! empty($this->route);
+    }
+    
+    /**
+     * Set the icon property when the icon is defined in the link attributes.
      *
      * @param array $properties
      *
-     * @return static
+     * @return array
      */
-    public static function make(array $properties)
+    protected static function setIconAttribute(array $properties)
     {
-        $properties = self::setIconAttribute($properties);
-
-        return new static($properties);
+        $icon = array_get($properties, 'attributes.icon');
+        if (! is_null($icon)) {
+            $properties['icon'] = $icon;
+            
+            array_forget($properties, 'attributes.icon');
+            
+            return $properties;
+        }
+        
+        return $properties;
     }
-
+    
+    /**
+     * Get property.
+     *
+     * @param string $key
+     *
+     * @return string|null
+     */
+    public function __get($key)
+    {
+        return isset($this->$key) ? $this->$key : null;
+    }
+    
+    /**
+     * Add new child item.
+     *
+     * @param array $properties
+     *
+     * @return $this
+     */
+    public function add(array $properties)
+    {
+        $item = static::make($properties);
+        
+        $this->childs[] = $item;
+        
+        return $item;
+    }
+    
+    /**
+     * Add new divider.
+     *
+     * @param int $order
+     *
+     * @return self
+     */
+    public function addDivider($order = null)
+    {
+        $item = static::make(['name' => 'divider', 'order' => $order]);
+        
+        $this->childs[] = $item;
+        
+        return $item;
+    }
+    
+    /**
+     * Add dropdown header.
+     *
+     * @param $title
+     *
+     * @return $this
+     */
+    public function addHeader($title)
+    {
+        $item = static::make([
+            'name'  => 'header',
+            'title' => $title,
+        ]);
+        
+        $this->childs[] = $item;
+        
+        return $item;
+    }
+    
+    /**
+     * Create new menu child item using array.
+     *
+     * @param $attributes
+     *
+     * @return $this
+     */
+    public function child($attributes)
+    {
+        $this->childs[] = static::make($attributes);
+        
+        return $this;
+    }
+    
+    /**
+     * Alias method instead "addDivider".
+     *
+     * @param int $order
+     *
+     * @return MenuItem
+     */
+    public function divider($order = null)
+    {
+        return $this->addDivider($order);
+    }
+    
+    /**
+     * Register new child menu with dropdown.
+     *
+     * @param $title
+     * @param callable $callback
+     *
+     * @return $this
+     */
+    public function dropdown($title, \Closure $callback, $order = 0, array $attributes = [])
+    {
+        $properties = compact('title', 'order', 'attributes');
+        
+        if (func_num_args() === 3) {
+            $arguments = func_get_args();
+            
+            $title = array_get($arguments, 0);
+            $attributes = array_get($arguments, 2);
+            
+            $properties = compact('title', 'attributes');
+        }
+        
+        $child = static::make($properties);
+        
+        call_user_func($callback, $child);
+        
+        $this->childs[] = $child;
+        
+        return $child;
+    }
+    
     /**
      * Fill the attributes.
      *
@@ -130,324 +263,17 @@ class MenuItem implements ArrayableContract
             }
         }
     }
-
+    
     /**
-     * Create new menu child item using array.
-     *
-     * @param $attributes
-     *
-     * @return $this
-     */
-    public function child($attributes)
-    {
-        $this->childs[] = static::make($attributes);
-
-        return $this;
-    }
-
-    /**
-     * Register new child menu with dropdown.
-     *
-     * @param $title
-     * @param callable $callback
-     *
-     * @return $this
-     */
-    public function dropdown($title, \Closure $callback, $order = 0, array $attributes = array())
-    {
-        $properties = compact('title', 'order', 'attributes');
-
-        if (func_num_args() === 3) {
-            $arguments = func_get_args();
-
-            $title = array_get($arguments, 0);
-            $attributes = array_get($arguments, 2);
-
-            $properties = compact('title', 'attributes');
-        }
-
-        $child = static::make($properties);
-
-        call_user_func($callback, $child);
-
-        $this->childs[] = $child;
-
-        return $child;
-    }
-
-    /**
-     * Create new menu item and set the action to route.
-     *
-     * @param $route
-     * @param $title
-     * @param array $parameters
-     * @param array $attributes
-     *
-     * @return MenuItem
-     */
-    public function route($route, $title, $parameters = array(), $order = 0, $attributes = array())
-    {
-        if (func_num_args() === 4) {
-            $arguments = func_get_args();
-
-            return $this->add([
-                'route' => [array_get($arguments, 0), array_get($arguments, 2)],
-                'title' => array_get($arguments, 1),
-                'attributes' => array_get($arguments, 3),
-            ]);
-        }
-
-        $route = array($route, $parameters);
-
-        return $this->add(compact('route', 'title', 'order', 'attributes'));
-    }
-
-    /**
-     * Create new menu item  and set the action to url.
-     *
-     * @param $url
-     * @param $title
-     * @param array $attributes
-     *
-     * @return MenuItem
-     */
-    public function url($url, $title, $order = 0, $attributes = array())
-    {
-        if (func_num_args() === 3) {
-            $arguments = func_get_args();
-
-            return $this->add([
-                'url' => array_get($arguments, 0),
-                'title' => array_get($arguments, 1),
-                'attributes' => array_get($arguments, 2),
-            ]);
-        }
-
-        return $this->add(compact('url', 'title', 'order', 'attributes'));
-    }
-
-    /**
-     * Add new child item.
-     *
-     * @param array $properties
-     *
-     * @return $this
-     */
-    public function add(array $properties)
-    {
-        $item = static::make($properties);
-
-        $this->childs[] = $item;
-
-        return $item;
-    }
-
-    /**
-     * Add new divider.
-     *
-     * @param int $order
-     *
-     * @return self
-     */
-    public function addDivider($order = null)
-    {
-        $item = static::make(array('name' => 'divider', 'order' => $order));
-
-        $this->childs[] = $item;
-
-        return $item;
-    }
-
-    /**
-     * Alias method instead "addDivider".
-     *
-     * @param int $order
-     *
-     * @return MenuItem
-     */
-    public function divider($order = null)
-    {
-        return $this->addDivider($order);
-    }
-
-    /**
-     * Add dropdown header.
-     *
-     * @param $title
-     *
-     * @return $this
-     */
-    public function addHeader($title)
-    {
-        $item = static::make(array(
-            'name' => 'header',
-            'title' => $title,
-        ));
-
-        $this->childs[] = $item;
-
-        return $item;
-    }
-
-    /**
-     * Same with "addHeader" method.
-     *
-     * @param $title
-     *
-     * @return $this
-     */
-    public function header($title)
-    {
-        return $this->addHeader($title);
-    }
-
-    /**
-     * Get childs.
-     *
-     * @return array
-     */
-    public function getChilds()
-    {
-        if (config('menus.ordering')) {
-            return collect($this->childs)->sortBy('order')->all();
-        }
-
-        return $this->childs;
-    }
-
-    /**
-     * Get url.
+     * Get active attribute.
      *
      * @return string
      */
-    public function getUrl()
+    public function getActiveAttribute()
     {
-        if ($this->route !== null) {
-            return route($this->route[0], $this->route[1]);
-        }
-
-        return url($this->url);
+        return array_get($this->attributes, 'active');
     }
-
-    /**
-     * Get request url.
-     *
-     * @return string
-     */
-    public function getRequest()
-    {
-        return ltrim(str_replace(url('/'), '', $this->getUrl()), '/');
-    }
-
-    /**
-     * Get icon.
-     *
-     * @param null|string $default
-     *
-     * @return string
-     */
-    public function getIcon($default = null)
-    {
-        if ($this->icon !== null && $this->icon !== '') {
-            return '<i class="' . $this->icon . '"></i>';
-        }
-        if ($default === null) {
-            return $default;
-        }
-
-        return '<i class="' . $default . '"></i>';
-    }
-
-    /**
-     * Get properties.
-     *
-     * @return array
-     */
-    public function getProperties()
-    {
-        return $this->properties;
-    }
-
-    /**
-     * Get HTML attribute data.
-     *
-     * @return mixed
-     */
-    public function getAttributes()
-    {
-        $attributes = $this->attributes ? $this->attributes : [];
-
-        array_forget($attributes, ['active', 'icon']);
-
-        return HTML::attributes($attributes);
-    }
-
-    /**
-     * Check is the current item divider.
-     *
-     * @return bool
-     */
-    public function isDivider()
-    {
-        return $this->is('divider');
-    }
-
-    /**
-     * Check is the current item divider.
-     *
-     * @return bool
-     */
-    public function isHeader()
-    {
-        return $this->is('header');
-    }
-
-    /**
-     * Check is the current item divider.
-     *
-     * @param $name
-     *
-     * @return bool
-     */
-    public function is($name)
-    {
-        return $this->name == $name;
-    }
-
-    /**
-     * Check is the current item has sub menu .
-     *
-     * @return bool
-     */
-    public function hasSubMenu()
-    {
-        return !empty($this->childs);
-    }
-
-    /**
-     * Same with hasSubMenu.
-     *
-     * @return bool
-     */
-    public function hasChilds()
-    {
-        return $this->hasSubMenu();
-    }
-
-    /**
-     * Check the active state for current menu.
-     *
-     * @return mixed
-     */
-    public function hasActiveOnChild()
-    {
-        if ($this->inactive()) {
-            return false;
-        }
-
-        return $this->hasChilds() ? $this->getActiveStateFromChilds() : false;
-    }
-
+    
     /**
      * Get active state from child menu items.
      *
@@ -471,40 +297,57 @@ class MenuItem implements ArrayableContract
                 return true;
             }
         }
-
+        
         return false;
     }
-
+    
     /**
-     * Get inactive state.
+     * Get HTML attribute data.
      *
-     * @return bool
+     * @return mixed
      */
-    public function inactive()
+    public function getAttributes()
     {
-        $inactive = $this->getInactiveAttribute();
-
-        if (is_bool($inactive)) {
-            return $inactive;
-        }
-
-        if ($inactive instanceof \Closure) {
-            return call_user_func($inactive);
-        }
-
-        return false;
+        $attributes = $this->attributes ? $this->attributes : [];
+        
+        array_forget($attributes, ['active', 'icon']);
+        
+        return HTML::attributes($attributes);
     }
-
+    
     /**
-     * Get active attribute.
+     * Get childs.
+     *
+     * @return array
+     */
+    public function getChilds()
+    {
+        if (config('menus.ordering')) {
+            return collect($this->childs)->sortBy('order')->all();
+        }
+        
+        return $this->childs;
+    }
+    
+    /**
+     * Get icon.
+     *
+     * @param null|string $default
      *
      * @return string
      */
-    public function getActiveAttribute()
+    public function getIcon($default = null)
     {
-        return array_get($this->attributes, 'active');
+        if ($this->icon !== null && $this->icon !== '') {
+            return '<i class="'.$this->icon.'"></i>';
+        }
+        if ($default === null) {
+            return $default;
+        }
+        
+        return '<i class="'.$default.'"></i>';
     }
-
+    
     /**
      * Get inactive attribute.
      *
@@ -514,91 +357,87 @@ class MenuItem implements ArrayableContract
     {
         return array_get($this->attributes, 'inactive');
     }
-
+    
     /**
-     * Get active state for current item.
+     * Get properties.
+     *
+     * @return array
+     */
+    public function getProperties()
+    {
+        return $this->properties;
+    }
+    
+    /**
+     * Get request url.
+     *
+     * @return string
+     */
+    public function getRequest()
+    {
+        return ltrim(str_replace(url('/'), '', $this->getUrl()), '/');
+    }
+    
+    /**
+     * Get url.
+     *
+     * @return string
+     */
+    public function getUrl()
+    {
+        if ($this->route !== null) {
+            return route($this->route[0], $this->route[1]);
+        }
+        
+        return url($this->url);
+    }
+    
+    /**
+     * Check the active state for current menu.
      *
      * @return mixed
      */
-    public function isActive()
+    public function hasActiveOnChild()
     {
         if ($this->inactive()) {
             return false;
         }
-
-        $active = $this->getActiveAttribute();
-
-        if (is_bool($active)) {
-            return $active;
-        }
-
-        if ($active instanceof \Closure) {
-            return call_user_func($active);
-        }
-
-        if ($this->hasRoute()) {
-            return $this->getActiveStateFromRoute();
-        }
-
-        return $this->getActiveStateFromUrl();
+        
+        return $this->hasChilds() ? $this->getActiveStateFromChilds() : false;
     }
-
+    
     /**
-     * Determine the current item using route.
+     * Same with hasSubMenu.
      *
      * @return bool
      */
-    protected function hasRoute()
+    public function hasChilds()
     {
-        return !empty($this->route);
+        return $this->hasSubMenu();
     }
-
+    
     /**
-     * Get active status using route.
+     * Check is the current item has sub menu .
      *
      * @return bool
      */
-    protected function getActiveStateFromRoute()
+    public function hasSubMenu()
     {
-        return Request::is(str_replace(url('/') . '/', '', $this->getUrl()));
+        return ! empty($this->childs);
     }
-
+    
     /**
-     * Get active status using request url.
+     * Same with "addHeader" method.
      *
-     * @return bool
-     */
-    protected function getActiveStateFromUrl()
-    {
-        return Request::is($this->url);
-    }
-
-    /**
-     * Set order value.
+     * @param $title
      *
-     * @param  int $order
-     * @return self
+     * @return $this
      */
-    public function order($order)
+    public function header($title)
     {
-        $this->order = $order;
-
-        return $this;
+        return $this->addHeader($title);
     }
-
-    /**
-     * Set hide condition for current menu item.
-     *
-     * @param  Closure
-     * @return boolean
-     */
-    public function hideWhen(Closure $callback)
-    {
-        $this->hideWhen = $callback;
-
-        return $this;
-    }
-
+    
     /**
      * Determine whether the menu item is hidden.
      *
@@ -609,10 +448,157 @@ class MenuItem implements ArrayableContract
         if (is_null($this->hideWhen)) {
             return false;
         }
-
+        
         return call_user_func($this->hideWhen) == true;
     }
-
+    
+    /**
+     * Set hide condition for current menu item.
+     *
+     * @param  Closure
+     * @return boolean
+     */
+    public function hideWhen(Closure $callback)
+    {
+        $this->hideWhen = $callback;
+        
+        return $this;
+    }
+    
+    /**
+     * Get inactive state.
+     *
+     * @return bool
+     */
+    public function inactive()
+    {
+        $inactive = $this->getInactiveAttribute();
+        
+        if (is_bool($inactive)) {
+            return $inactive;
+        }
+        
+        if ($inactive instanceof \Closure) {
+            return call_user_func($inactive);
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check is the current item divider.
+     *
+     * @param $name
+     *
+     * @return bool
+     */
+    public function is($name)
+    {
+        return $this->name == $name;
+    }
+    
+    /**
+     * Get active state for current item.
+     *
+     * @return mixed
+     */
+    public function isActive()
+    {
+        if ($this->inactive()) {
+            return false;
+        }
+        
+        $active = $this->getActiveAttribute();
+        
+        if (is_bool($active)) {
+            return $active;
+        }
+        
+        if ($active instanceof \Closure) {
+            return call_user_func($active);
+        }
+        
+        if ($this->hasRoute()) {
+            return $this->getActiveStateFromRoute();
+        }
+        
+        return $this->getActiveStateFromUrl();
+    }
+    
+    /**
+     * Check is the current item divider.
+     *
+     * @return bool
+     */
+    public function isDivider()
+    {
+        return $this->is('divider');
+    }
+    
+    /**
+     * Check is the current item divider.
+     *
+     * @return bool
+     */
+    public function isHeader()
+    {
+        return $this->is('header');
+    }
+    
+    /**
+     * Create new static instance.
+     *
+     * @param array $properties
+     *
+     * @return static
+     */
+    public static function make(array $properties)
+    {
+        $properties = self::setIconAttribute($properties);
+        
+        return new static($properties);
+    }
+    
+    /**
+     * Set order value.
+     *
+     * @param  int $order
+     * @return self
+     */
+    public function order($order)
+    {
+        $this->order = $order;
+        
+        return $this;
+    }
+    
+    /**
+     * Create new menu item and set the action to route.
+     *
+     * @param $route
+     * @param $title
+     * @param array $parameters
+     * @param array $attributes
+     *
+     * @return MenuItem
+     */
+    public function route($route, $title, $parameters = [], $order = 0, $attributes = [])
+    {
+        if (func_num_args() === 4) {
+            $arguments = func_get_args();
+            
+            return $this->add([
+                'route'      => [array_get($arguments, 0), array_get($arguments, 2)],
+                'title'      => array_get($arguments, 1),
+                'attributes' => array_get($arguments, 3),
+            ]);
+        }
+        
+        $route = [$route, $parameters];
+        
+        return $this->add(compact('route', 'title', 'order', 'attributes'));
+    }
+    
     /**
      * Get the instance as an array.
      *
@@ -622,16 +608,28 @@ class MenuItem implements ArrayableContract
     {
         return $this->getProperties();
     }
-
+    
     /**
-     * Get property.
+     * Create new menu item  and set the action to url.
      *
-     * @param string $key
+     * @param $url
+     * @param $title
+     * @param array $attributes
      *
-     * @return string|null
+     * @return MenuItem
      */
-    public function __get($key)
+    public function url($url, $title, $order = 0, $attributes = [])
     {
-        return isset($this->$key) ? $this->$key : null;
+        if (func_num_args() === 3) {
+            $arguments = func_get_args();
+            
+            return $this->add([
+                'url'        => array_get($arguments, 0),
+                'title'      => array_get($arguments, 1),
+                'attributes' => array_get($arguments, 2),
+            ]);
+        }
+        
+        return $this->add(compact('url', 'title', 'order', 'attributes'));
     }
 }

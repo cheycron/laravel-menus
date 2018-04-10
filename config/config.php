@@ -1,7 +1,6 @@
 <?php
 
 return [
-
     'styles' => [
         'navbar' => \Nwidart\Menus\Presenters\Bootstrap\NavbarPresenter::class,
         'navbar-right' => \Nwidart\Menus\Presenters\Bootstrap\NavbarRightPresenter::class,
@@ -12,7 +11,5 @@ return [
         'adminlte' => \Nwidart\Menus\Presenters\Admin\AdminltePresenter::class,
         'zurbmenu' => \Nwidart\Menus\Presenters\Foundation\ZurbMenuPresenter::class,
     ],
-
     'ordering' => false,
-
 ];

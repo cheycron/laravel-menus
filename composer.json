@@ -1,5 +1,5 @@
 {
-  "name": "nwidart/laravel-menus",
+  "name": "cheycron/laravel-menus",
   "description": "Laravel Menu management",
   "keywords": [
     "laravel",
@@ -10,6 +10,10 @@
   ],
   "license": "MIT",
   "authors": [
+    {
+      "name": "Cheycron Blaine",
+      "email": "cheycron@gmail.com"
+    },
     {
       "name": "Nicolas Widart",
       "email": "n.widart@gmail.com"
@@ -34,12 +38,12 @@
   },
   "autoload": {
     "psr-4": {
-      "Nwidart\\Menus\\": "src"
+      "Cheycron\\Menus\\": "src"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "Nwidart\\Menus\\Tests\\": "Tests"
+      "Cheycron\\Menus\\Tests\\": "Tests"
     }
   },
   "extra": {
@@ -48,10 +52,10 @@
     },
     "laravel": {
       "providers": [
-        "Nwidart\\Menus\\MenusServiceProvider"
+        "Cheycron\\Menus\\MenusServiceProvider"
       ],
       "aliases": {
-        "Menu": "Nwidart\\Menus\\Facades\\Menu"
+        "Menu": "Cheycron\\Menus\\Facades\\Menu"
       }
     }
   },

@@ -1,6 +1,4 @@
-<?php
-
-namespace Nwidart\Menus;
+<?php namespace Cheycron\Menus;
 
 use Countable;
 use Illuminate\Config\Repository;
@@ -9,72 +7,68 @@ use Illuminate\View\Factory as ViewFactory;
 class MenuBuilder implements Countable
 {
     /**
-     * Menu name.
+     * Resolved item binding map.
      *
-     * @var string
+     * @var array
      */
-    protected $menu;
-
+    protected $bindings = [];
+    
     /**
      * Array menu items.
      *
      * @var array
      */
     protected $items = [];
-
+    
     /**
-     * Default presenter class.
+     * Menu name.
      *
      * @var string
      */
-    protected $presenter = Presenters\Bootstrap\NavbarPresenter::class;
-
-    /**
-     * Style name for each presenter.
-     *
-     * @var array
-     */
-    protected $styles = [];
-
-    /**
-     * Prefix URL.
-     *
-     * @var string|null
-     */
-    protected $prefixUrl;
-
-    /**
-     * The name of view presenter.
-     *
-     * @var string
-     */
-    protected $view;
-
-    /**
-     * The laravel view factory instance.
-     *
-     * @var \Illuminate\View\Factory
-     */
-    protected $views;
-
+    protected $menu;
+    
     /**
      * Determine whether the ordering feature is enabled or not.
      *
      * @var boolean
      */
     protected $ordering = false;
-
+    
     /**
-     * Resolved item binding map.
+     * Prefix URL.
+     *
+     * @var string|null
+     */
+    protected $prefixUrl;
+    
+    /**
+     * Default presenter class.
+     *
+     * @var string
+     */
+    protected $presenter = Presenters\Bootstrap\NavbarPresenter::class;
+    
+    /**
+     * Style name for each presenter.
      *
      * @var array
      */
-    protected $bindings = [];
+    protected $styles = [];
+    
     /**
-     * @var Repository
+     * The name of view presenter.
+     *
+     * @var string
      */
-    private $config;
-
+    protected $view;
+    
+    /**
+     * The laravel view factory instance.
+     *
+     * @var \Illuminate\View\Factory
+     */
+    protected $views;
+    
     /**
      * Constructor.
      *
@@ -86,7 +80,229 @@ class MenuBuilder implements Countable
         $this->menu = $menu;
         $this->config = $config;
     }
-
+    
+    /**
+     * Format URL.
+     *
+     * @param string $url
+     *
+     * @return string
+     */
+    protected function formatUrl($url)
+    {
+        $uri = ! is_null($this->prefixUrl) ? $this->prefixUrl.$url : $url;
+        
+        return $uri == '/' ? '/' : ltrim(rtrim($uri, '/'), '/');
+    }
+    
+    /**
+     * Render the menu.
+     *
+     * @return string
+     */
+    protected function renderMenu()
+    {
+        $presenter = $this->getPresenter();
+        $menu = $presenter->getOpenTagWrapper();
+        
+        foreach ($this->getOrderedItems() as $item) {
+            if ($item->hidden()) {
+                continue;
+            }
+            
+            if ($item->hasSubMenu()) {
+                $menu .= $presenter->getMenuWithDropDownWrapper($item);
+            } elseif ($item->isHeader()) {
+                $menu .= $presenter->getHeaderWrapper($item);
+            } elseif ($item->isDivider()) {
+                $menu .= $presenter->getDividerWrapper();
+            } else {
+                $menu .= $presenter->getMenuWithoutDropdownWrapper($item);
+            }
+        }
+        
+        $menu .= $presenter->getCloseTagWrapper();
+        
+        return $menu;
+    }
+    
+    protected function rescursiveCan(array $can)
+    {
+    
+    }
+    
+    /**
+     * Resolves an array of menu items properties.
+     *
+     * @param  array &$items
+     * @return void
+     */
+    protected function resolveItems(array &$items)
+    {
+        $resolver = function ($property) {
+            return $this->resolve($property) ?: $property;
+        };
+        
+        $totalItems = count($items);
+        for ($i = 0; $i < $totalItems; $i++) {
+            $items[$i]->fill(array_map($resolver, $items[$i]->getProperties()));
+        }
+    }
+    
+    /**
+     * Add new child menu.
+     *
+     * @param array $attributes
+     *
+     * @return \Cheycron\Menus\MenuItem
+     */
+    public function add(array $attributes = [])
+    {
+        $item = MenuItem::make($attributes);
+        
+        $this->items[] = $item;
+        
+        return $item;
+    }
+    
+    /**
+     * Add new divider item.
+     *
+     * @param int $order
+     * @return \Cheycron\Menus\MenuItem
+     */
+    public function addDivider($order = null)
+    {
+        $this->items[] = new MenuItem(['name' => 'divider', 'order' => $order]);
+        
+        return $this;
+    }
+    
+    /**
+     * Add new header item.
+     *
+     * @return \Cheycron\Menus\MenuItem
+     */
+    public function addHeader($title, $order = null)
+    {
+        $this->items[] = new MenuItem([
+            'name'  => 'header',
+            'title' => $title,
+            'order' => $order,
+        ]);
+        
+        return $this;
+    }
+    
+    /**
+     * Get items count.
+     *
+     * @return int
+     */
+    public function count()
+    {
+        return count($this->items);
+    }
+    
+    /**
+     * Empty the current menu items.
+     */
+    public function destroy()
+    {
+        $this->items = [];
+        
+        return $this;
+    }
+    
+    /**
+     * Disable menu ordering.
+     *
+     * @return self
+     */
+    public function disableOrdering()
+    {
+        $this->ordering = false;
+        
+        return $this;
+    }
+    
+    /**
+     * Alias for "addDivider" method.
+     *
+     * @return $this
+     */
+    public function divider()
+    {
+        return $this->addDivider();
+    }
+    
+    /**
+     * Create new menu with dropdown.
+     *
+     * @param $title
+     * @param callable $callback
+     * @param array $attributes
+     *
+     * @return $this
+     */
+    public function dropdown($title, \Closure $callback, $order = null, array $attributes = [])
+    {
+        $properties = compact('title', 'order', 'attributes');
+        
+        if (func_num_args() == 3) {
+            $arguments = func_get_args();
+            
+            $title = array_get($arguments, 0);
+            $attributes = array_get($arguments, 2);
+            
+            $properties = compact('title', 'attributes');
+        }
+        
+        $item = MenuItem::make($properties);
+        
+        call_user_func($callback, $item);
+        
+        $this->items[] = $item;
+        
+        return $item;
+    }
+    
+    /**
+     * Enable menu ordering.
+     *
+     * @return self
+     */
+    public function enableOrdering()
+    {
+        $this->ordering = true;
+        
+        return $this;
+    }
+    
+    /**
+     * Find menu item by given key and value.
+     *
+     * @param  string $key
+     * @param  string $value
+     * @return \Cheycron\Menus\MenuItem
+     */
+    public function findBy($key, $value)
+    {
+        return collect($this->items)->filter(function ($item) use ($key, $value) {
+            return $item->{$key} == $value;
+        })->first();
+    }
+    
+    /**
+     * Get original items.
+     *
+     * @return array
+     */
+    public function getItems()
+    {
+        return $this->items;
+    }
+    
     /**
      * Get menu name.
      *
@@ -96,91 +312,33 @@ class MenuBuilder implements Countable
     {
         return $this->menu;
     }
-
+    
     /**
-     * Find menu item by given its title.
+     * Get menu items and order it by 'order' key.
      *
-     * @param  string        $title
-     * @param  callable|null $callback
-     * @return mixed
+     * @return array
      */
-    public function whereTitle($title, callable $callback = null)
+    public function getOrderedItems()
     {
-        $item = $this->findBy('title', $title);
-
-        if (is_callable($callback)) {
-            return call_user_func($callback, $item);
+        if (config('menus.ordering') || $this->ordering) {
+            return $this->toCollection()->sortBy(function ($item) {
+                return $item->order;
+            })->all();
         }
-
-        return $item;
+        
+        return $this->items;
     }
-
+    
     /**
-     * Find menu item by given key and value.
+     * Get presenter instance.
      *
-     * @param  string $key
-     * @param  string $value
-     * @return \Nwidart\Menus\MenuItem
+     * @return \Cheycron\Menus\Presenters\PresenterInterface
      */
-    public function findBy($key, $value)
+    public function getPresenter()
     {
-        return collect($this->items)->filter(function ($item) use ($key, $value) {
-            return $item->{$key} == $value;
-        })->first();
+        return new $this->presenter();
     }
-
-    /**
-     * Set view factory instance.
-     *
-     * @param ViewFactory $views
-     *
-     * @return $this
-     */
-    public function setViewFactory(ViewFactory $views)
-    {
-        $this->views = $views;
-
-        return $this;
-    }
-
-    /**
-     * Set view.
-     *
-     * @param string $view
-     *
-     * @return $this
-     */
-    public function setView($view)
-    {
-        $this->view = $view;
-
-        return $this;
-    }
-
-    /**
-     * Set Prefix URL.
-     *
-     * @param string $prefixUrl
-     *
-     * @return $this
-     */
-    public function setPrefixUrl($prefixUrl)
-    {
-        $this->prefixUrl = $prefixUrl;
-
-        return $this;
-    }
-
-    /**
-     * Set styles.
-     *
-     * @param array $styles
-     */
-    public function setStyles(array $styles)
-    {
-        $this->styles = $styles;
-    }
-
+    
     /**
      * Set new presenter class.
      *
@@ -190,33 +348,41 @@ class MenuBuilder implements Countable
     {
         $this->presenter = $presenter;
     }
-
+    
     /**
-     * Get presenter instance.
+     * Get the presenter class name by given alias name.
      *
-     * @return \Nwidart\Menus\Presenters\PresenterInterface
+     * @param $name
+     *
+     * @return mixed
      */
-    public function getPresenter()
+    public function getStyle($name)
     {
-        return new $this->presenter();
+        $style = $this->getStyles();
+        
+        return $style[$name];
     }
-
+    
     /**
-     * Set new presenter class by given style name.
+     * Get style aliases.
      *
-     * @param string $name
-     *
-     * @return self
+     * @return mixed
      */
-    public function style($name)
+    public function getStyles()
     {
-        if ($this->hasStyle($name)) {
-            $this->setPresenter($this->getStyle($name));
-        }
-
-        return $this;
+        return $this->styles ?: $this->config->get('menus.styles');
     }
-
+    
+    /**
+     * Set styles.
+     *
+     * @param array $styles
+     */
+    public function setStyles(array $styles)
+    {
+        $this->styles = $styles;
+    }
+    
     /**
      * Determine if the given name in the presenter style.
      *
@@ -228,54 +394,57 @@ class MenuBuilder implements Countable
     {
         return array_key_exists($name, $this->getStyles());
     }
-
+    
     /**
-     * Get style aliases.
+     * Alias for "addHeader" method.
      *
-     * @return mixed
-     */
-    public function getStyles()
-    {
-        return $this->styles ?: $this->config->get('menus.styles');
-    }
-
-    /**
-     * Get the presenter class name by given alias name.
+     * @param string $title
      *
-     * @param $name
-     *
-     * @return mixed
-     */
-    public function getStyle($name)
-    {
-        $style = $this->getStyles();
-
-        return $style[$name];
-    }
-
-    /**
-     * Set new presenter class from given alias name.
-     *
-     * @param $name
-     */
-    public function setPresenterFromStyle($name)
-    {
-        $this->setPresenter($this->getStyle($name));
-    }
-
-    /**
-     * Set the resolved item bindings
-     *
-     * @param array $bindings
      * @return $this
      */
-    public function setBindings(array $bindings)
+    public function header($title)
     {
-        $this->bindings = $bindings;
-
-        return $this;
+        return $this->addHeader($title);
     }
-
+    
+    /**
+     * Render the menu to HTML tag.
+     *
+     * @param string $presenter
+     *
+     * @return string
+     */
+    public function render($presenter = null)
+    {
+        $this->resolveItems($this->items);
+        
+        if (! is_null($this->view)) {
+            return $this->renderView($presenter);
+        }
+        
+        if ($this->hasStyle($presenter)) {
+            $this->setPresenterFromStyle($presenter);
+        }
+        
+        if (! is_null($presenter) && ! $this->hasStyle($presenter)) {
+            $this->setPresenter($presenter);
+        }
+        
+        return $this->renderMenu();
+    }
+    
+    /**
+     * Render menu via view presenter.
+     *
+     * @return \Illuminate\View\View
+     */
+    public function renderView($presenter = null)
+    {
+        return $this->views->make($presenter ?: $this->view, [
+            'items' => $this->getOrderedItems(),
+        ]);
+    }
+    
     /**
      * Resolves a key from the bindings array.
      *
@@ -289,83 +458,18 @@ class MenuBuilder implements Countable
                 $key[$k] = $this->resolve($v);
             }
         } elseif (is_string($key)) {
-            $matches = array();
+            $matches = [];
             preg_match_all('/{[\s]*?([^\s]+)[\s]*?}/i', $key, $matches, PREG_SET_ORDER);
             foreach ($matches as $match) {
                 if (array_key_exists($match[1], $this->bindings)) {
-                    $key = preg_replace('/' . $match[0] . '/', $this->bindings[$match[1]], $key, 1);
+                    $key = preg_replace('/'.$match[0].'/', $this->bindings[$match[1]], $key, 1);
                 }
             }
         }
-
+        
         return $key;
     }
-
-    /**
-     * Resolves an array of menu items properties.
-     *
-     * @param  array  &$items
-     * @return void
-     */
-    protected function resolveItems(array &$items)
-    {
-        $resolver = function ($property) {
-            return $this->resolve($property) ?: $property;
-        };
-
-        $totalItems = count($items);
-        for ($i = 0; $i < $totalItems; $i++) {
-            $items[$i]->fill(array_map($resolver, $items[$i]->getProperties()));
-        }
-    }
-
-    /**
-     * Add new child menu.
-     *
-     * @param array $attributes
-     *
-     * @return \Nwidart\Menus\MenuItem
-     */
-    public function add(array $attributes = array())
-    {
-        $item = MenuItem::make($attributes);
-
-        $this->items[] = $item;
-
-        return $item;
-    }
-
-    /**
-     * Create new menu with dropdown.
-     *
-     * @param $title
-     * @param callable $callback
-     * @param array    $attributes
-     *
-     * @return $this
-     */
-    public function dropdown($title, \Closure $callback, $order = null, array $attributes = array())
-    {
-        $properties = compact('title', 'order', 'attributes');
-
-        if (func_num_args() == 3) {
-            $arguments = func_get_args();
-
-            $title = array_get($arguments, 0);
-            $attributes = array_get($arguments, 2);
-
-            $properties = compact('title', 'attributes');
-        }
-
-        $item = MenuItem::make($properties);
-
-        call_user_func($callback, $item);
-
-        $this->items[] = $item;
-
-        return $item;
-    }
-
+    
     /**
      * Register new menu item using registered route.
      *
@@ -376,202 +480,110 @@ class MenuBuilder implements Countable
      *
      * @return static
      */
-    public function route($route, $title, $parameters = array(), $order = null, $attributes = array())
+    public function route($route, $title, $parameters = [], $order = null, $attributes = [])
     {
         if (func_num_args() == 4) {
             $arguments = func_get_args();
-
+            
             return $this->add([
-                'route' => [array_get($arguments, 0), array_get($arguments, 2)],
-                'title' => array_get($arguments, 1),
+                'route'      => [array_get($arguments, 0), array_get($arguments, 2)],
+                'title'      => array_get($arguments, 1),
                 'attributes' => array_get($arguments, 3),
             ]);
         }
-
-        $route = array($route, $parameters);
-
+        
+        $route = [$route, $parameters];
+        
         $item = MenuItem::make(
             compact('route', 'title', 'parameters', 'attributes', 'order')
         );
-
+        
         $this->items[] = $item;
-
+        
         return $item;
     }
-
+    
     /**
-     * Format URL.
+     * Set the resolved item bindings
      *
-     * @param string $url
-     *
-     * @return string
+     * @param array $bindings
+     * @return $this
      */
-    protected function formatUrl($url)
+    public function setBindings(array $bindings)
     {
-        $uri = !is_null($this->prefixUrl) ? $this->prefixUrl . $url : $url;
-
-        return $uri == '/' ? '/' : ltrim(rtrim($uri, '/'), '/');
-    }
-
-    /**
-     * Register new menu item using url.
-     *
-     * @param $url
-     * @param $title
-     * @param array $attributes
-     *
-     * @return static
-     */
-    public function url($url, $title, $order = 0, $attributes = array())
-    {
-        if (func_num_args() == 3) {
-            $arguments = func_get_args();
-
-            return $this->add([
-                'url' => $this->formatUrl(array_get($arguments, 0)),
-                'title' => array_get($arguments, 1),
-                'attributes' => array_get($arguments, 2),
-            ]);
-        }
-
-        $url = $this->formatUrl($url);
-
-        $item = MenuItem::make(compact('url', 'title', 'order', 'attributes'));
-
-        $this->items[] = $item;
-
-        return $item;
-    }
-
-    /**
-     * Add new divider item.
-     *
-     * @param int $order
-     * @return \Nwidart\Menus\MenuItem
-     */
-    public function addDivider($order = null)
-    {
-        $this->items[] = new MenuItem(array('name' => 'divider', 'order' => $order));
-
+        $this->bindings = $bindings;
+        
         return $this;
     }
-
+    
     /**
-     * Add new header item.
+     * Set Prefix URL.
      *
-     * @return \Nwidart\Menus\MenuItem
-     */
-    public function addHeader($title, $order = null)
-    {
-        $this->items[] = new MenuItem(array(
-            'name' => 'header',
-            'title' => $title,
-            'order' => $order,
-        ));
-
-        return $this;
-    }
-
-    /**
-     * Alias for "addHeader" method.
-     *
-     * @param string $title
+     * @param string $prefixUrl
      *
      * @return $this
      */
-    public function header($title)
+    public function setPrefixUrl($prefixUrl)
     {
-        return $this->addHeader($title);
+        $this->prefixUrl = $prefixUrl;
+        
+        return $this;
     }
-
+    
     /**
-     * Alias for "addDivider" method.
+     * Set new presenter class from given alias name.
+     *
+     * @param $name
+     */
+    public function setPresenterFromStyle($name)
+    {
+        $this->setPresenter($this->getStyle($name));
+    }
+    
+    /**
+     * Set view.
+     *
+     * @param string $view
      *
      * @return $this
      */
-    public function divider()
+    public function setView($view)
     {
-        return $this->addDivider();
-    }
-
-    /**
-     * Get items count.
-     *
-     * @return int
-     */
-    public function count()
-    {
-        return count($this->items);
-    }
-
-    /**
-     * Empty the current menu items.
-     */
-    public function destroy()
-    {
-        $this->items = array();
-
+        $this->view = $view;
+        
         return $this;
     }
-
+    
     /**
-     * Render the menu to HTML tag.
+     * Set view factory instance.
      *
-     * @param string $presenter
+     * @param ViewFactory $views
      *
-     * @return string
+     * @return $this
      */
-    public function render($presenter = null)
+    public function setViewFactory(ViewFactory $views)
     {
-        $this->resolveItems($this->items);
-
-        if (!is_null($this->view)) {
-            return $this->renderView($presenter);
+        $this->views = $views;
+        
+        return $this;
+    }
+    
+    /**
+     * Set new presenter class by given style name.
+     *
+     * @param string $name
+     *
+     * @return self
+     */
+    public function style($name)
+    {
+        if ($this->hasStyle($name)) {
+            $this->setPresenter($this->getStyle($name));
         }
-
-        if ($this->hasStyle($presenter)) {
-            $this->setPresenterFromStyle($presenter);
-        }
-
-        if (!is_null($presenter) && !$this->hasStyle($presenter)) {
-            $this->setPresenter($presenter);
-        }
-
-        return $this->renderMenu();
+        
+        return $this;
     }
-
-    /**
-     * Render menu via view presenter.
-     *
-     * @return \Illuminate\View\View
-     */
-    public function renderView($presenter = null)
-    {
-        return $this->views->make($presenter ?: $this->view, [
-            'items' => $this->getOrderedItems(),
-        ]);
-    }
-
-    /**
-     * Get original items.
-     *
-     * @return array
-     */
-    public function getItems()
-    {
-        return $this->items;
-    }
-
-    /**
-     * Get menu items as laravel collection instance.
-     *
-     * @return \Illuminate\Support\Collection
-     */
-    public function toCollection()
-    {
-        return collect($this->items);
-    }
-
+    
     /**
      * Get menu items as array.
      *
@@ -581,75 +593,67 @@ class MenuBuilder implements Countable
     {
         return $this->toCollection()->toArray();
     }
-
+    
     /**
-     * Enable menu ordering.
+     * Get menu items as laravel collection instance.
      *
-     * @return self
+     * @return \Illuminate\Support\Collection
      */
-    public function enableOrdering()
+    public function toCollection()
     {
-        $this->ordering = true;
-
-        return $this;
+        return collect($this->items);
     }
-
+    
     /**
-     * Disable menu ordering.
+     * Register new menu item using url.
      *
-     * @return self
-     */
-    public function disableOrdering()
-    {
-        $this->ordering = false;
-
-        return $this;
-    }
-
-    /**
-     * Get menu items and order it by 'order' key.
+     * @param $url
+     * @param $title
+     * @param array $attributes
      *
-     * @return array
+     * @return static
      */
-    public function getOrderedItems()
+    public function url($url, $title, $order = 0, $attributes = [])
     {
-        if (config('menus.ordering') || $this->ordering) {
-            return $this->toCollection()->sortBy(function ($item) {
-                return $item->order;
-            })->all();
+        if (func_num_args() == 3) {
+            $arguments = func_get_args();
+            
+            return $this->add([
+                'url'        => $this->formatUrl(array_get($arguments, 0)),
+                'title'      => array_get($arguments, 1),
+                'attributes' => array_get($arguments, 2),
+            ]);
         }
-
-        return $this->items;
+        
+        $url = $this->formatUrl($url);
+        
+        $item = MenuItem::make(compact('url', 'title', 'order', 'attributes'));
+        
+        $this->items[] = $item;
+        
+        return $item;
     }
-
+    
     /**
-     * Render the menu.
+     * Find menu item by given its title.
      *
-     * @return string
+     * @param  string $title
+     * @param  callable|null $callback
+     * @return mixed
      */
-    protected function renderMenu()
+    public function whereTitle($title, callable $callback = null)
     {
-        $presenter = $this->getPresenter();
-        $menu = $presenter->getOpenTagWrapper();
-
-        foreach ($this->getOrderedItems() as $item) {
-            if ($item->hidden()) {
-                continue;
-            }
-
-            if ($item->hasSubMenu()) {
-                $menu .= $presenter->getMenuWithDropDownWrapper($item);
-            } elseif ($item->isHeader()) {
-                $menu .= $presenter->getHeaderWrapper($item);
-            } elseif ($item->isDivider()) {
-                $menu .= $presenter->getDividerWrapper();
-            } else {
-                $menu .= $presenter->getMenuWithoutDropdownWrapper($item);
-            }
+        $item = $this->findBy('title', $title);
+        
+        if (is_callable($callback)) {
+            return call_user_func($callback, $item);
         }
-
-        $menu .= $presenter->getCloseTagWrapper();
-
-        return $menu;
+        
+        return $item;
     }
+    
+    /**
+     * @var Repository
+     */
+    private $config;
 }

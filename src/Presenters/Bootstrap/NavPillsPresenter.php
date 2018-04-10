@@ -1,6 +1,4 @@
-<?php
-
-namespace Nwidart\Menus\Presenters\Bootstrap;
+<?php namespace Cheycron\Menus\Presenters\Bootstrap;
 
 class NavPillsPresenter extends NavbarPresenter
 {
@@ -9,6 +7,6 @@ class NavPillsPresenter extends NavbarPresenter
      */
     public function getOpenTagWrapper()
     {
-        return PHP_EOL . '<ul class="nav nav-pills">' . PHP_EOL;
+        return PHP_EOL.'<ul class="nav nav-pills">'.PHP_EOL;
     }
 }

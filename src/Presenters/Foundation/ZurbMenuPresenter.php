@@ -1,36 +1,9 @@
-<?php
+<?php namespace Cheycron\Menus\Presenters\Foundation;
 
-namespace Nwidart\Menus\Presenters\Foundation;
-
-use Nwidart\Menus\Presenters\Presenter;
+use Cheycron\Menus\Presenters\Presenter;
 
 class ZurbMenuPresenter extends Presenter
 {
-    /**
-     * {@inheritdoc }
-     */
-    public function getOpenTagWrapper()
-    {
-        return  PHP_EOL . '<nav class="custom-main">
-        <ul class="dropdown menu" data-dropdown-menu>' . PHP_EOL;
-    }
-
-    /**
-     * {@inheritdoc }
-     */
-    public function getCloseTagWrapper()
-    {
-        return  PHP_EOL . '</ul></nav>' . PHP_EOL;
-    }
-
-    /**
-     * {@inheritdoc }
-     */
-    public function getMenuWithoutDropdownWrapper($item)
-    {
-        return '<li'.$this->getActiveState($item).'><a href="'. $item->getUrl() .'">'.$item->title.'</a></li>';
-    }
-
     /**
      * {@inheritdoc }
      */
@@ -38,7 +11,15 @@ class ZurbMenuPresenter extends Presenter
     {
         return \Request::is($item->getRequest()) ? ' class="is-active"' : null;
     }
-
+    
+    /**
+     * {@inheritdoc }
+     */
+    public function getCloseTagWrapper()
+    {
+        return PHP_EOL.'</ul></nav>'.PHP_EOL;
+    }
+    
     /**
      * {@inheritdoc }
      */
@@ -46,7 +27,7 @@ class ZurbMenuPresenter extends Presenter
     {
         return '<li class="divider"></li>';
     }
-
+    
     /**
      * {@inheritdoc }
      */
@@ -57,20 +38,36 @@ class ZurbMenuPresenter extends Presenter
                     <ul class="menu">
                       '.$this->getChildMenuItems($item).'
                     </ul>
-                </li>' . PHP_EOL;
+                </li>'.PHP_EOL;
     }
-
-
+    
+    /**
+     * {@inheritdoc }
+     */
+    public function getMenuWithoutDropdownWrapper($item)
+    {
+        return '<li'.$this->getActiveState($item).'><a href="'.$item->getUrl().'">'.$item->title.'</a></li>';
+    }
+    
     /**
      * {@inheritdoc }
      */
     public function getMultiLevelDropdownWrapper($item)
     {
         return '<li>
-                  <a href="#">'.$item->title . '</a>
+                  <a href="#">'.$item->title.'</a>
                   <ul class="menu">
-                    ' . $this->getChildMenuItems($item) . '
+                    '.$this->getChildMenuItems($item).'
                   </ul>
-                </li>'. PHP_EOL;
+                </li>'.PHP_EOL;
+    }
+    
+    /**
+     * {@inheritdoc }
+     */
+    public function getOpenTagWrapper()
+    {
+        return PHP_EOL.'<nav class="custom-main">
+        <ul class="dropdown menu" data-dropdown-menu>'.PHP_EOL;
     }
 }
